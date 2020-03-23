@@ -62,7 +62,7 @@ class EBest:
         while len(self.query_cnt) >= EBest.QUERY_LIMIT_10MIN:
             time.sleep(1)
             print("waiting for execute query... current query cnt:",
-                  len(self, query_cnt))
+                  len(self.query_cnt))
             self.query_cnt = list(
                 filter(lambda x: (datetime.today() - x).total_seconds() < EBest.LIMIT_SECONDS, self.query_cnt))
 
@@ -181,6 +181,105 @@ class EBest:
             item['code'] = code
         return result
 
+    def get_account_info(self):
+        in_params = {"RecCnt": 1, "AcntNo": self.account, "Pwd": self.passwd}
+        out_params = ["MnyOrdAbleAmt", "BalEvalAmt",
+                      "DpsastTotamt", "InvstOrgAmt", "InvstPlamt", "Dps"]
+        result = self._execute_query(
+            "CSPAQ12200", "CSPAQ12200InBlock1", "CSPAQ12200OutBlock2", *out_params, **in_params)
+        return result
+
+    def get_account_stock_info(self):
+        # 현물계좌 잔고정보조회
+        in_params = {"RecCnt": 1, "AcntNo": self.account, "Pwd": self.passwd, "BalCreTp": "0",
+                     "CmsnAppTpCode": "0", "D2balBaseQryTp": "0", "UprcTpCode": "0"}
+        out_params = ["IsuNo", "IsuNm", "BalQty", "SellPrc",
+                      "BuyPrc", "NowPrc", "AvrUprc", "BalEvalAmt", "PrdayCprc"]
+        result = self._execute_query(
+            "CSPAQ12300", "CSPAQ12300InBlock1", "CSPAQ12300OutBlock3", *out_params, **in_params)
+
+    def order_stock(self, code, qty, price, bns_type, order_type):
+        # 현물주문
+        # bns_type : 1 매도 , 2 매수
+        # order_type : 00 지정가 , 03 시장가 , 05 조건부시장가 , 07 최우선지정가
+        #              61 장개시전시간외종가 , 81 시간외종가 , 82 시간외단일가
+        in_params = {"AcntNo": self.account, "InptPwd": self.passwd, "IsuNo": code, "OrdQty": qty,
+                     "OrdPrc": price, "BnsTpCode": bns_type, "OrdprcPtnCode": order_type}
+        out_params = ["OrdNo", "OrdTime", "OrdMktCode", "OrdPtnCode", "ShtnIsuNo", "MgemNo",
+                      "OrdAmt", "SpotOrdQty", "IsuNm"]
+        result = self._execute_query(
+            "CSPAT00600", "CSPAT00600InBlock1", "CSPAT00600OutBlock2", *out_params, **in_params)
+        return result
+
+    def order_cancel(self, order_no, code, qty):
+        # 주문취소
+        in_params = {"OrgOrdNo": order_no, "AcntNo": self.account,
+                     "InptPwd": self.passwd, "IsuNo": code, "OrdQty": qty}
+        out_params = {"OrdNo", "PrntOrdNo", "OrdTime", "OrdPtnCode", "IsuNm"}
+        result = self._execute_query(
+            "CSPAT00800", "CSPAT00800InBlock1", "CSPAT00800OutBlock2", *out_params, **in_params)
+        return result
+
+    def order_check(self, order_no):
+        # (체결/미체결) 주문조회
+        in_params = {"accno": self.account, "passwd": self.passwd, "expcode": "", "chegb": "0", "medosu": "0",
+                     "sortgb": "1", "cts_ordno": " "}
+        out_params = ["ordno", "expcode", "medosu", "qty", "price", "cheqty", "cheprice", "ordrem", "cfmqty",
+                      "status", "orgordno", "ordermtd", "sysprocseq", "hogagb", "price1", "orggb", "singb", "loandt"]
+        result_list = self._execute_query(
+            "t0425", "t0425Inblock", "t0425OutBlock1", *out_params, **in_params)
+        result = {}
+        if order_no is not None:
+            for item in result_list:
+                if item['주문번호'] == order_no:
+                    result = item
+            return result
+        else:
+            return result_list
+
+    def get_current_call_price_by_code(self, code=None):
+        # 현재가 호가 조회
+        tr_code = "t1101"
+        in_params = {"shcode": code}
+        out_params = ["hname", "price", "sign", "change", "diff", "volume", "jniclose", "offerho1", "bidho1", "offerem1",
+                      "bidrem1", "offerho2", "bidho2", "offerrem2", "bidrem2",
+                      "offerho3", "bidho3", "offerrem3", "bidrem3",
+                      "offerho4", "bidho4", "offerrem4", "bidrem4",
+                      "offerho5", "bidho5", "offerrem5", "bidrem5",
+                      "offerho6", "bidho6", "offerrem6", "bidrem6",
+                      "offerho7", "bidho7", "offerrem7", "bidrem7",
+                      "offerho8", "bidho8", "offerrem8", "bidrem8",
+                      "offerho9", "bidho9", "offerrem9", "bidrem9",
+                      "offerho10", "bidho10", "offerrem10", "bidrem10",
+                      "preoffercha10", "prebidcha", "hotime", "yeprice", "yevolume",
+                      "yesign", "yechange", "yediff", "tmoffer", "tmbid", "ho_status",
+                      "shchode", "uplmtprice", "dnlmtprice", "open", "high", "low"]
+
+        result = self._execute_query(
+            "t1101", "t1101InBlock", "t1101OutBlock", *out_params, **in_params)
+
+        for item in result:
+            item["code"] = code
+
+        return result
+
+    def get_tick_size(self, price):
+        # 호가단위 조회 메서드
+        if price < 1000:
+            return 1
+        elif price >= 1000 and price < 5000:
+            return 5
+        elif price >= 5000 and price < 10000:
+            return 10
+        elif price >= 10000 and price < 50000:
+            return 50
+        elif price >= 50000 and price < 100000:
+            return 100
+        elif price >= 100000 and price < 500000:
+            return 500
+        elif price >= 500000:
+            return 1000
+
 
 class Field:
     t1101 = {
@@ -188,6 +287,16 @@ class Field:
             "hname": "한글명",
             "price": "현재가",
             "sign": "전일대비구분",
+            "change": "전일대비",
+            "diff": "등락율",
+            "volume": "누적거래량",
+            "jiniclose": "전일종가",
+            "offerho1": "매도호가1",
+            "bidho1": "매수호가1",
+            "offerrem1": "매도호가수량1",
+            "bidrem1": "매수호가수량1",
+            "uplmtprice": "상한가",
+            "dnlmtprice": "하한가",
             "open": "시가",
             "high": "고가",
             "low": "저가"
@@ -312,6 +421,100 @@ class Field:
             "OrdNo": "주문번호",
             "PrntOrdNo": "모주문번호",
             "IsuNm": "종목명"
+        }
+    }
+
+    CSPAQ12200 = {
+        "CSPAQ12200OutBlock2": {
+            "MnyOrdAbleAmt": "현금주문가능금액",
+            "BalEvalAmt": "잔고평가금액",
+            "InvstOrgAmt": "투자원금",
+            "InvstPlamt": "투자손익금액",
+            "Dps": "예수금"
+        }
+    }
+
+    CSPAQ12300 = {
+        "CSPAQ12300OutBlock3": {
+            "IsuNo": "종목번호",
+            "IsuNm": "종목명",
+            "BnsBaseBalQty": "매매기준잔고수량",
+            "NowPrc": "현재가",
+            "AvrUprc": "평균단가"
+        }
+    }
+
+    CSPAT00600 = {
+        "CSPAT00600OutBlock2": {
+            "RecCnt": "레코드갯수",
+            "OrdNo": "주문번호",
+            "OrdTime": "주문시각",
+            "OrdMktCode": "주문시장코드",
+            "OrdPtnCode": "주문유형코드",
+            "ShtnIsuNo": "단축종목번호",
+            "MgemNo": "관리사원번호",
+            "OrdAmt": "주문금액",
+            "SpareOrdNo": "예비주문번호",
+            "CvrgSeqno": "반대매매일련번호",
+            "RsvOrdNo": "예약주문번호",
+            "SpotOrdQty": "실물주문수량",
+            "RuseOrdQty": "재사용주문수량",
+            "MnyOrdAmt": "현금주문금액",
+            "SubstOrdAmt": "대용주문금액",
+            "RuseOrdAmt": "재사용주문금액",
+            "AcntNm": "계좌명",
+            "IsuNm": "종목명"
+        }
+    }
+
+    CSPAT00800 = {
+        "CSPAT00800OutBlock2": {
+            "RecCnt": "레코드갯수",
+            "OrdNo": "주문번호",
+            "PrntOrdNo": "모주문번호",
+            "OrdTime": "주문시각",
+            "OrdMktCode": "주문시장코드",
+            "OrdPtnCode": "주문유형코드",
+            "ShtnIsuNo": "단축종목번호",
+            "PrgmOrdprcPtnCode": "프로그램호가유형코드",
+            "StslOrdprcTpCode": "공매도호가구분",
+            "StslAbleYn": "공매도가능여부",
+            "MgntrnCode": "신용거래코드",
+            "LoanDt": "대출일",
+            "CvrgOrdTp": "반대매매주문구분",
+            "LpYn": "유동성공급자여부",
+            "MgemNo": "관리사원번호",
+            "BnsTpCode": "매매구분",
+            "SpareOrdNo": "예비주문번호",
+            "CvrgSeqno": "반대매매일련번호",
+            "RsvOrdNo": "예약주문번호",
+            "AcntNm": "계좌명",
+            "IsuNm": "종목명"
+        }
+    }
+
+    t0425 = {
+        "t0425OutBlock1": {
+            "ordno": "주문번호",
+            "expcode": "종목번호",
+            "medosu": "구분",
+            "qty": "주문수량",
+            "price": "주문가격",
+            "cheqty": "체결수량",
+            "cheprice": "체결가격",
+            "ordrem": "미체결잔량",
+            "cfmqty": "확인수량",
+            "status": "상태",
+            "orgordno": "원주문번",
+            "ordgb": "유형",
+            "ordtime": "주문시간",
+            "ordermtd": "주문매체",
+            "sysprocseq": "처리순번",
+            "hogagb": "호가유형",
+            "price1": "현재가",
+            "orggb": "주문구분",
+            "singb": "신용구분",
+            "loandt": "대출일자"
         }
     }
 

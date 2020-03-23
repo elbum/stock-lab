@@ -9,9 +9,6 @@ class TestEBest(unittest.TestCase):
         self.ebest = EBest("DEMO")
         self.ebest.login()
 
-    def tearDown(self):
-        self.ebest.logout()
-
     def test_get_code_list(self):
         print(inspect.stack()[0][3])
         all_result = self.ebest.get_code_list("ALL")
@@ -53,6 +50,45 @@ class TestEBest(unittest.TestCase):
             '005930', fromdt='20181201', todt='20181231')
         assert result is not None
         print(result)
+
+    def test_get_account_info(self):
+        result = self.ebest.get_account_info()
+        assert result is not None
+        print(result)
+
+    def test_get_account_stock_info(self):
+        result = self.ebest.get_account_stock_info()
+        if result == None:
+            print("Stock info nothing")
+        print(result)
+
+    def test_order_stock(self):
+        print(inspect.stack()[0][3])
+        result = self.ebest.order_stock("005930", "2", "50000", "2", "61")
+        assert result
+        print(result)
+
+    def test_order_cancel(self):
+        print(inspect.stack()[0][3])
+        result = self.ebest.order_cancel("29515", "A005930", "2")
+        assert result
+        print(result)
+
+    def test_order_check(self):
+        print(inspect.stack()[0][3])
+        result = self.ebest.order_check("29515")
+        if result == None:
+            print("Order info nothing")
+        print(result)
+
+    def test_get_current_call_price_by_code(self):
+        print(inspect.stack()[0][3])
+        result = self.ebest.get_current_call_price_by_code("005930")
+        assert result
+        return result
+
+    def tearDown(self):
+        self.ebest.logout()
 
 
 if __name__ == '__main__':
