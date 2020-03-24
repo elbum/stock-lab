@@ -15,7 +15,7 @@ ebest_ace.login()
 mongo = MongoDBHandler()
 
 
-def run_process_trading_scenario(codel_list, date):
+def run_process_trading_scenario(code_list, date):
     p = Process(target=run_trading_scenario, args=(code_list, date))
     p.start()
     p.join()
@@ -24,3 +24,34 @@ def run_process_trading_scenario(codel_list, date):
 
 def run_trading_scenario(code_list, date):
     tick = 0
+    print(code_list, date, tick)
+
+    while tick < 20:
+        print("tick:", tick)
+        for code in code_list:
+            current_price = ebest_ace.get_price_n_min_by_code(date, code, tick)
+            print("current price", current_price)
+            time.sleep(1)
+            buy_order_list = ebest_ace.order_stock(
+                code, "2", current_price["시가"], "2", "00")
+            buy_order = buy_order_list[0]
+            buy_order["amount"] = 2
+            mongo.insert_item(buy_order, "stocklab_demo", "order")
+            sell_order_list = ebest_ace.order_stock(
+                code, "1", current_price["종가"], "1", "00")
+            print("Sell order result:", sell_order_list)
+            sell_order = sell_order_list[0]
+            sell_order["amount"] = 1
+            mongo.insert_item(sell_order, "stocklab_demo", "order")
+        tick += 1
+
+
+if __name__ == "__main__":
+    scheduler = BackgroundScheduler()
+    codes = ["180640", "005930"]
+    day = datetime.now() - timedelta(days=4)
+    day = day.strftime("%Y%m%d")
+    print(day)
+    scheduler.add_job(func=run_process_trading_scenario, trigger="date", run_date=datetime.now(), id="test",
+                      kwargs={"code_list": codes, "date": day})
+    scheduler.start()
