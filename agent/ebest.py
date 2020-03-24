@@ -26,8 +26,8 @@ class EBest:
     LIMIT_SECONDS = 600   # 10min
 
     def __init__(self, mode=None):
-        if mode not in ['PROD', 'DEMO']:
-            raise Exception("Need to run_mode PROD or DEMO")
+        if mode not in ['PROD', 'DEMO', 'ACE']:
+            raise Exception("Need to run_mode PROD or DEMO or ACE")
 
         run_mode = "EBEST_"+mode
         config = configparser.ConfigParser()
@@ -204,7 +204,7 @@ class EBest:
         # order_type : 00 지정가 , 03 시장가 , 05 조건부시장가 , 07 최우선지정가
         #              61 장개시전시간외종가 , 81 시간외종가 , 82 시간외단일가
         in_params = {"AcntNo": self.account, "InptPwd": self.passwd, "IsuNo": code, "OrdQty": qty,
-                     "OrdPrc": price, "BnsTpCode": bns_type, "OrdprcPtnCode": order_type}
+                     "OrdPrc": price, "BnsTpCode": bns_type, "OrdprcPtnCode": order_type, "OrdCndiTpCode": "0", "MgntrnCode": "000"}
         out_params = ["OrdNo", "OrdTime", "OrdMktCode", "OrdPtnCode", "ShtnIsuNo", "MgemNo",
                       "OrdAmt", "SpotOrdQty", "IsuNm"]
         result = self._execute_query(
@@ -233,6 +233,7 @@ class EBest:
             for item in result_list:
                 if item['주문번호'] == order_no:
                     result = item
+                    print("***** func order_check ***** ", result)
             return result
         else:
             return result_list
@@ -279,6 +280,22 @@ class EBest:
             return 500
         elif price >= 500000:
             return 1000
+
+    def get_price_n_min_by_code(self, date, code, tick=None):
+        # N분 차트정보
+        in_params = {"shcode": code, "ncnt": "1", "qrycnt": "500", "nday": "1", "sdate": "date", "stime": "090000",
+                     "edate": date, "etime": "153000", "cts_date": "00000000", "cts_time": "0000000000", "comp_yn": "N"}
+        out_params = ["date", "time", "open", "high",
+                      "low", "close", "jdiff_vol", "value"]
+
+        result_list = self._execute_query(
+            "t8412", "t8412InBlock", "t8412OutBlock1", *out_params, **in_params)
+        result = {}
+        for idx, item in enumerate(result_list):
+            result[idx] = item
+        if tick is not None:
+            return result[tick]
+        return result
 
 
 class Field:
@@ -515,6 +532,22 @@ class Field:
             "orggb": "주문구분",
             "singb": "신용구분",
             "loandt": "대출일자"
+        }
+    }
+
+    t8412 = {
+        "t8412OutBlock1": {
+            "date": "날짜",
+            "time": "시간",
+            "open": "시가",
+            "high": "고가",
+            "low": "저가",
+            "close": "종가",
+            "jdiff_vol": "거래량",
+            "value": "거래대금",
+            "jongchk": "수정구분",
+            "rate": "수정비율",
+            "sign": "종가등락구분"
         }
     }
 

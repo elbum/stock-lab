@@ -64,19 +64,19 @@ class TestEBest(unittest.TestCase):
 
     def test_order_stock(self):
         print(inspect.stack()[0][3])
-        result = self.ebest.order_stock("005930", "2", "50000", "2", "61")
+        result = self.ebest.order_stock("005930", "2", "45000", "2", "00")
         assert result
         print(result)
 
     def test_order_cancel(self):
         print(inspect.stack()[0][3])
-        result = self.ebest.order_cancel("29515", "A005930", "2")
+        result = self.ebest.order_cancel("11571", "A005930", "2")
         assert result
         print(result)
 
     def test_order_check(self):
         print(inspect.stack()[0][3])
-        result = self.ebest.order_check("29515")
+        result = self.ebest.order_check("11571")
         if result == None:
             print("Order info nothing")
         print(result)
@@ -87,12 +87,25 @@ class TestEBest(unittest.TestCase):
         assert result
         return result
 
+    # def test_get_price_n_min_by_code(self):
+    #     print(inspect.stack()[0][3])
+    #     result = self.ebest.get_price_n_min_by_code("20200323", "180640")
+    #     assert result
+    #     return result
+
+    # def test_get_price_n_min_by_code(self):
+    #     print(inspect.stack()[0][3])
+    #     result = self.ebest.get_price_n_min_by_code("20200323", "005930", 0)
+    #     assert result
+    #     return result
+
     def tearDown(self):
         self.ebest.logout()
 
 
 if __name__ == '__main__':
-    unittest.main()
+    # unittest.main()
+    unittest.test_order_stock()
 
 # test = TestEBest()
 # test.setUp()
